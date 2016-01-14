@@ -25,7 +25,7 @@ function getFilePaths(patterns) {
 function getPassedMigrations(db) {
     return db
         .manyOrNone(`SELECT name from ${MIGRATIONS_TABLE_NAME};`)
-        .then(r => console.log(r))
+        .then(rows => rows.map(r => r.name));
 }
 
 //function runMigration(db, filePath) {
@@ -42,18 +42,35 @@ function initTables(db) {
 
 
 function runScript(db, path) {
-    pify(fs.readFile)(path, 'utf8')
+    return pify(fs.readFile)(path, 'utf8')
         .then(content => db.query(content));
 }
 
-function runScripts(db, globs) {
+function runScripts(db, paths) {
+    return Promise.all(paths.map(path => runScript(db, path)));
+}
+
+function markMigrationsAsPassed(db, paths) {
+    //db.none("INSERT INTO documents(id, doc) VALUES(${id}, ${this})", doc)
+}
+
+function runScriptsFromGlobs(db, globs) {
     return Promise.resolve()
         .then(() => getFilePaths(globs))
-        .then(paths => Promise.all(paths.map(path => runScript(db, path))));
+        .then(paths => runScripts(db, paths));
+}
+
+function selectNewMigrationFiles(all, passed) {
+    //TODO: use set
+    return all.filter(path => passed.indexOf(path) == -1)
 }
 
 function runMigrations(db, globs) {
     return Promise.all([getFilePaths(globs), getPassedMigrations(db)])
+        .then(allAndPassed => selectNewMigrationFiles(allAndPassed[0], allAndPassed[1]))
+        .then(paths => Promise.all([runScripts(db, paths), markMigrationsAsPassed(db, paths)]))
+
+        .then(r => console.log(r))
 
         //.then(getFilePaths(globs))
         //.then(getPassedMigrations(db))
@@ -79,9 +96,9 @@ module.exports.deploy = function(rawOptions) {
 
     return Promise.resolve()
         .then(() => initTables(db))
-        .then(() => runScripts(db, options.beforeScripts))
+        .then(() => runScriptsFromGlobs(db, options.beforeScripts))
         .then(() => runMigrations(db, options.migrations))
-        .then(() => runScripts(db, options.afterScripts))
+        .then(() => runScriptsFromGlobs(db, options.afterScripts))
         .then(() => saveStructure(db, options.structurePath))
         .then(() => undefined)
 };
