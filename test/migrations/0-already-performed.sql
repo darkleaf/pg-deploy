@@ -1,1 +1,1 @@
-This migration mustn't be performed.
+This_migration_mustnt_be_performed
