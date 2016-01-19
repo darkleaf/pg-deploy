@@ -2,14 +2,16 @@
 
 const pify = require('pify');
 const glob = pify(require('glob'));
+const exec = pify(require('child_process').exec);
 const pgp = require('pg-promise')(/*options*/);
+const parseConnectionString = require('pg-connection-string').parse;
 
 function flatArray(array) {
     return Array.prototype.concat.apply([], array);
 }
 
 const defaultOptions = {
-    connectionConfig: undefined,
+    connectionString: undefined,
     beforeScripts: [],
     migrations: [],
     afterScripts: [],
@@ -20,7 +22,8 @@ const defaultOptions = {
 class PgDeploy {
     constructor(options) {
         this.options = Object.assign(defaultOptions, options);
-        this.db = pgp(this.options.connectionConfig);
+        this.db = pgp(this.options.connectionString);
+        this.connectionOptions = parseConnectionString(this.options.connectionString)
     }
 
     _runScript(path) {
@@ -86,6 +89,14 @@ class PgDeploy {
     saveStructure() {
         //TODO: implement
         return Promise.resolve();
+    }
+
+    createLocalDb() {
+        return exec(`createdb -U ${this.connectionOptions.user} ${this.connectionOptions.database}`)
+    }
+
+    dropLocalDb() {
+        return exec(`dropdb --if-exists -U ${this.connectionOptions.user} ${this.connectionOptions.database}`)
     }
 
     deploy() {

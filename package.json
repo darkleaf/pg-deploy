@@ -18,10 +18,10 @@
   "homepage": "https://github.com/darkleaf/pg-deploy#readme",
   "devDependencies": {
     "dotenv": "^1.2.0",
-    "mocha": "^2.3.4",
-    "pg-connection-string": "^0.1.3"
+    "mocha": "^2.3.4"
   },
   "dependencies": {
+    "pg-connection-string": "^0.1.3",
     "pg-promise": "^2.9.1",
     "pify": "^2.3.0"
   }

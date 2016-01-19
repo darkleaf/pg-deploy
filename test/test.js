@@ -1,26 +1,24 @@
 "use strict";
 
+require('dotenv').load();
+
 const assert = require('assert');
-const helper = require('./helper');
+const pgp = require('pg-promise')();
 const PgDeploy = require('../');
 
-const migrationsTableName = 'migrations';
-
-const db = helper.getDb();
-
+const db = pgp(process.env.DB_CONNECTION);
 const pgDeploy = new PgDeploy({
-    connectionConfig: process.env.DB_CONNECTION,
+    connectionString: process.env.DB_CONNECTION,
     beforeScripts: ['test/before-scripts/**/*.sql'],
     migrations: ['test/migrations/**/*.sql'],
-    afterScripts: ['test/after-scripts/**/*.sql'],
-    migrationsTableName
+    afterScripts: ['test/after-scripts/**/*.sql']
 });
 
 describe('PgDeploy', () => {
     before(() => {
         return Promise.resolve()
-            .then(() => helper.dropDb())
-            .then(() => helper.createDb())
+            .then(() => pgDeploy.dropLocalDb())
+            .then(() => pgDeploy.createLocalDb())
     });
 
     before(() => pgDeploy.initMigrationTable());
