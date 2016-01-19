@@ -3,11 +3,21 @@
 const pify = require('pify');
 const glob = pify(require('glob'));
 const exec = pify(require('child_process').exec);
+const fs = pify(require('fs'));
 const pgp = require('pg-promise')(/*options*/);
 const parseConnectionString = require('pg-connection-string').parse;
 
 function flatArray(array) {
     return Array.prototype.concat.apply([], array);
+}
+
+function identityTransformation(fileContent) {
+    return Promise.resolve(fileContent);
+}
+
+function applyTransformations(initialContent, transformations) {
+    const initialPromise = Promise.resolve(initialContent);
+    return transformations.reduce((previous, transformation) => previous.then(content => transformation(content)), initialPromise)
 }
 
 const defaultOptions = {
@@ -16,7 +26,8 @@ const defaultOptions = {
     migrations: [],
     afterScripts: [],
     structurePath: '',
-    migrationsTableName: 'pg_deploy_migrations'
+    migrationsTableName: 'pg_deploy_migrations',
+    transformations: [identityTransformation]
 };
 
 class PgDeploy {
@@ -27,8 +38,9 @@ class PgDeploy {
     }
 
     _runScript(path) {
-        const script = new pgp.QueryFile(path);
-        return this.db.none(script);
+        return fs.readFile(path, 'utf8')
+            .then(content => applyTransformations(content, this.options.transformations))
+            .then(content => this.db.none(content));
     }
 
     _runScriptsInParallel(paths) {
