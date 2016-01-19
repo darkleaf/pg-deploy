@@ -9,6 +9,7 @@ const migrationsTableName = 'migrations';
 const db = helper.getDb();
 
 const pgDeploy = new PgDeploy({
+    connectionConfig: process.env.DB_CONNECTION,
     beforeScripts: ['test/before-scripts/**/*.sql'],
     migrations: ['test/migrations/**/*.sql'],
     afterScripts: ['test/after-scripts/**/*.sql'],

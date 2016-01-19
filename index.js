@@ -9,6 +9,7 @@ function flatArray(array) {
 }
 
 const defaultOptions = {
+    connectionConfig: undefined,
     beforeScripts: [],
     migrations: [],
     afterScripts: [],
@@ -18,8 +19,8 @@ const defaultOptions = {
 
 class PgDeploy {
     constructor(options) {
-        this.db = pgp('postgres://postgres@/pg-deploy');
-        this.options = Object.assign(defaultOptions, options)
+        this.options = Object.assign(defaultOptions, options);
+        this.db = pgp(this.options.connectionConfig);
     }
 
     _runScript(path) {
