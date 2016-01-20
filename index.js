@@ -15,6 +15,7 @@ function identityTransformation(fileContent) {
     return Promise.resolve(fileContent);
 }
 
+//`thenFns` are callbacks for `then` method.
 function promiseChain(initialPromise, thenFns) {
     return thenFns.reduce((previous, thenFn) => previous.then(thenFn), initialPromise)
 }
