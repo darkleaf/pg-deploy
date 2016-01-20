@@ -15,9 +15,14 @@ function identityTransformation(fileContent) {
     return Promise.resolve(fileContent);
 }
 
+function promiseChain(initialPromise, thenFns) {
+    return thenFns.reduce((previous, thenFn) => previous.then(thenFn), initialPromise)
+}
+
 function applyTransformations(initialContent, transformations) {
     const initialPromise = Promise.resolve(initialContent);
-    return transformations.reduce((previous, transformation) => previous.then(content => transformation(content)), initialPromise)
+    const thenFns = transformations.map(t => content => t(content));
+    return promiseChain(initialPromise, thenFns);
 }
 
 const defaultOptions = {
@@ -43,6 +48,15 @@ class PgDeploy {
             .then(content => db.none(content));
     }
 
+    _runMigration(db, path) {
+        return db.tx(tx => {
+            return tx.batch([
+                this._runScript(tx, path),
+                this._markMigrationAsPassed(tx, path)
+            ])
+        })
+    }
+
     _runScriptsInParallel(paths) {
         return this.db.task(t => {
             return t.batch(paths.map(path => {
@@ -54,15 +68,8 @@ class PgDeploy {
     _runMigrationsSequentially(paths) {
         const initial = Promise.resolve();
         return this.db.task(t => {
-            return paths.reduce((previous, path) => {
-                return previous.then(() => {
-                    return t.tx(tx => {
-                        return Promise.resolve()
-                            .then(() => this._runScript(tx, path))
-                            .then(() => this._markMigrationAsPassed(tx, path))
-                    })
-                })
-            }, initial)
+            const thenFns = paths.map(path => () => this._runMigration(t, path));
+            return promiseChain(initial, thenFns)
         })
     }
 
