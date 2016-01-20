@@ -37,19 +37,33 @@ class PgDeploy {
         this.connectionOptions = parseConnectionString(this.options.connectionString)
     }
 
-    _runScript(path) {
+    _runScript(db, path) {
         return fs.readFile(path, 'utf8')
             .then(content => applyTransformations(content, this.options.transformations))
-            .then(content => this.db.none(content));
+            .then(content => db.none(content));
     }
 
     _runScriptsInParallel(paths) {
-        return Promise.all(paths.map(path => this._runScript(path)));
+        return this.db.task(t => {
+            return Promise.all(paths.map(path => {
+                return t.tx(tx => this._runScript(tx, path))
+            }))
+        })
     }
 
-    _runScriptsSequentially(paths) {
+    _runMigrationsSequentially(paths) {
         const initial = Promise.resolve();
-        return paths.reduce((previous, path) => previous.then(() => this._runScript(path)), initial)
+        return this.db.task(t => {
+            return paths.reduce((previous, path) => {
+                return previous.then(() => {
+                    return t.tx(tx => {
+                        return Promise.resolve()
+                            .then(() => this._runScript(tx, path))
+                            .then(() => this._markMigrationAsPassed(tx, path))
+                    })
+                })
+            }, initial)
+        })
     }
 
     _getFilePaths(patterns) {
@@ -73,11 +87,10 @@ class PgDeploy {
         return all.filter(path => passed.indexOf(path) == -1)
     }
 
-    _markMigrationsAsPassed(paths) {
-        const values = paths.map(path => pgp.as.format("($1)", path)).join(', ');
-        return this.db.none(
-            "INSERT INTO ${migrationsTableName^}(name) VALUES${values^}",
-            {values, migrationsTableName: this.options.migrationsTableName})
+    _markMigrationAsPassed(db, path) {
+        return db.none(
+            "INSERT INTO ${migrationsTableName^}(name) VALUES(${path})",
+            {path, migrationsTableName: this.options.migrationsTableName})
     }
 
     initMigrationTable() {
@@ -91,17 +104,17 @@ class PgDeploy {
     runMigrations() {
         return Promise.all([this._getFilePaths(this.options.migrations), this._getPassedMigrations()])
             .then(allAndPassed => this._selectNewMigrationFiles(allAndPassed[0], allAndPassed[1]))
-            .then(paths => Promise.all([this._runScriptsSequentially(paths), this._markMigrationsAsPassed(paths)]))
+            .then(paths => this._runMigrationsSequentially(paths))
     }
 
     runAfterScripts() {
         return this._runScriptsFromGlobs(this.options.afterScripts);
     }
 
-    saveStructure() {
-        //TODO: implement
-        return Promise.resolve();
-    }
+    /* TODO: implement */
+    //saveStructure() {
+    //    return Promise.resolve();
+    //}
 
     createLocalDb() {
         return exec(`createdb -U ${this.connectionOptions.user} ${this.connectionOptions.database}`)
@@ -117,7 +130,7 @@ class PgDeploy {
             .then(() => this.runBeforeScripts())
             .then(() => this.runMigrations())
             .then(() => this.runAfterScripts())
-            .then(() => this.saveStructure())
+            //.then(() => this.saveStructure())
             .then()
     }
 }

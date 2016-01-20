@@ -22,7 +22,7 @@ describe('PgDeploy', () => {
     });
 
     before(() => pgDeploy.initMigrationTable());
-    before(() => pgDeploy._markMigrationsAsPassed(['test/migrations/0-already-performed.sql']));
+    before(() => pgDeploy._markMigrationAsPassed(db, 'test/migrations/0-already-performed.sql'));
     before(() => pgDeploy.deploy());
 
     it('run before scripts', () => {
