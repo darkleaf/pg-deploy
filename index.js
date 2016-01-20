@@ -45,7 +45,7 @@ class PgDeploy {
 
     _runScriptsInParallel(paths) {
         return this.db.task(t => {
-            return Promise.all(paths.map(path => {
+            return t.batch(paths.map(path => {
                 return t.tx(tx => this._runScript(tx, path))
             }))
         })
