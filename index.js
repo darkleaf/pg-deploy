@@ -125,11 +125,28 @@ class PgDeploy {
     //}
 
     createLocalDb() {
-        return exec(`createdb -U ${this.connectionOptions.user} ${this.connectionOptions.database}`)
+        const parts = [];
+        parts.push('createdb');
+        if (this.connectionOptions.user) parts.push(`-U ${this.connectionOptions.user}`);
+        if (this.connectionOptions.host) parts.push(`-h ${this.connectionOptions.host}`);
+        if (this.connectionOptions.port) parts.push(`-p ${this.connectionOptions.port}`);
+        parts.push(this.connectionOptions.database);
+
+        const cmd = parts.join(' ');
+        return exec(cmd);
     }
 
     dropLocalDb() {
-        return exec(`dropdb --if-exists -U ${this.connectionOptions.user} ${this.connectionOptions.database}`)
+        const parts = [];
+        parts.push('dropdb');
+        parts.push('--if-exists');
+        if (this.connectionOptions.user) parts.push(`-U ${this.connectionOptions.user}`);
+        if (this.connectionOptions.host) parts.push(`-h ${this.connectionOptions.host}`);
+        if (this.connectionOptions.port) parts.push(`-p ${this.connectionOptions.port}`);
+        parts.push(this.connectionOptions.database);
+
+        const cmd = parts.join(' ');
+        return exec(cmd);
     }
 
     deploy() {
